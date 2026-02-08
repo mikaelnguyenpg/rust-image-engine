@@ -1,0 +1,20 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Web framework mạnh mẽ, dễ dùng
+axum = { version = "0.7", features = ["multipart"] } 
+
+# Runtime để chạy code bất đồng bộ (giống event loop của Nodejs nhưng cực mạnh)
+tokio = { version = "1.0", features = ["full"] }
+
+# Thư viện xử lý ảnh hàng đầu của Rust
+image = "0.24"
+
+# Giúp Next.js gọi được API mà không bị chặn (CORS)
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Chuyển đổi dữ liệu qua lại giữa JSON và Struct
+serde = { version = "1.0", features = ["derive"] }
