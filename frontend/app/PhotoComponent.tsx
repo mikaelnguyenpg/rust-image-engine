@@ -8,6 +8,11 @@ export default function PhotoComponent() {
     engine: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<string>("");
+  const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(
+    null,
+  );
 
   // 1. Kiểm tra kết nối với Rust Backend
   const checkBackend = async () => {
@@ -15,11 +20,38 @@ export default function PhotoComponent() {
       const res = await fetch("http://localhost:8080/health");
       const data = await res.json();
       setStatus(data);
-      console.log(" * Data: ", data);
+      console.log(" * I. Data: ", data);
     } catch (err) {
       console.error("Rust server chưa bật rồi ông giáo ơi!", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    console.log(" * II.1. Uploaded photo: ", file);
+    try {
+      const res = await fetch("http://localhost:8080/process", {
+        method: "POST",
+        body: formData,
+      });
+
+      // const text = await res.text();
+      // setResult(text);
+
+      // Nhận dữ liệu dưới dạng Blob (Binary Large Object)
+      const blob = await res.blob();
+
+      // Tạo một URL tạm thời để hiển thị cái Blob này
+      const url = URL.createObjectURL(blob);
+      setProcessedImageUrl(url);
+    } catch (err) {
+      setResult("Lỗi gửi ảnh rồi ông giáo ơi!");
     }
   };
 
@@ -55,6 +87,34 @@ export default function PhotoComponent() {
       >
         Re-check Connection
       </button>
+
+      <div className="mt-10 p-6 border border-dashed border-slate-600 rounded-lg">
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500"
+        />
+        <button
+          onClick={uploadImage}
+          className="mt-4 w-full py-2 bg-green-600 rounded-lg font-bold"
+        >
+          Gửi ảnh vào lò luyện Rust
+        </button>
+        {result && (
+          <p className="mt-4 text-center text-yellow-400 font-mono">{result}</p>
+        )}
+      </div>
+
+      {processedImageUrl && (
+        <div className="mt-8">
+          <p className="text-center mb-2">Thành quả từ lò luyện Rust:</p>
+          <img
+            src={processedImageUrl}
+            alt="Processed"
+            className="max-w-md rounded-lg shadow-2xl border-4 border-green-500"
+          />
+        </div>
+      )}
     </div>
   );
 }
