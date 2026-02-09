@@ -96,11 +96,26 @@ cd frontend && npm run dev
 ### Chạy Benchmark so sánh
 
 ```bash
+# 1. Dọn dẹp các container cũ
+docker-compose down
+
+# 2. Build và khởi động (Nhớ bật BuildKit để build Rust nhanh hơn)
+DOCKER_BUILDKIT=1 docker-compose up --build -d
+
+# 3. Theo dõi log của cả 2 phe khi đang benchmark
+docker-compose logs -f backend node-backend
+```
+
+```bash
 # Test hiệu năng Rust
-bombardier -c 50 -d 30s -m POST -f test.jpg http://localhost/api/rust/process
+# bombardier -c 50 -d 30s -m POST -f test.jpg http://localhost/api/rust/process
+# Modify to `/api/rust` in script.js
+docker run --rm --add-host=host.docker.internal:host-gateway -v $(pwd):/home/k6 -i grafana/k6 run /home/k6/script.js
 
 # Test hiệu năng Node.js
-bombardier -c 50 -d 30s -m POST -f test.jpg http://localhost/api/node/process
+# bombardier -c 50 -d 30s -m POST -f test.jpg http://localhost/api/node/process
+# Modify to `/api/node` in script.js
+docker run --rm --add-host=host.docker.internal:host-gateway -v $(pwd):/home/k6 -i grafana/k6 run /home/k6/script.js
 ```
 
 ## 📈 6. Kết quả Benchmark (Performance Results)

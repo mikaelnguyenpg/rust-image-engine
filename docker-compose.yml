@@ -1,11 +1,30 @@
 services:
   backend:
     build: ./backend
-    deploy: # Chạy 3 instance (container) của Rust cùng lúc
-      replicas: 3
     expose:
       - "8080"
+    deploy:
+      # replicas: 3 # Chạy 3 instance (container) của Rust cùng lúc
+      resources:
+        limits:
+          cpus: '0.5' # Giới hạn 0.5 nhân CPU để thấy rõ sự khác biệt
+          memory: 256M
+    # Restart để tránh sập app giữa chừng khi test quá nặng
+    restart: always
 
+  # --- NODE.JS BACKEND ---
+  node-backend:
+    build: ./node-backend
+    expose:
+      - "8081"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    restart: always
+
+  # --- NEXT.JS FRONTEND ---
   frontend:
     build: ./frontend
     environment:
@@ -14,7 +33,11 @@ services:
       # thì chỉ cần đổi giá trị ở trên thành http://localhost:8080
     expose:
       - "3000"
+    depends_on:
+      - backend
+      - node-backend
 
+  # --- NGINX REVERSE PROXY ---
   nginx:
     image: nginx:alpine
     volumes:
@@ -24,3 +47,4 @@ services:
     depends_on:
       - frontend
       - backend
+      - node-backend
