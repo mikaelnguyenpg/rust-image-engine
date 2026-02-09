@@ -1,10 +1,13 @@
 use axum::{
     Json, Router, extract::Multipart, response::IntoResponse, routing::{get, post}
 };
-use image::load_from_memory;
+use rayon::iter::IntoParallelIterator;
+use zip::write::FileOptions;
 use std::{io::Cursor, net::SocketAddr};
 use tower_http::cors::{Any, CorsLayer};
 use serde::Serialize;
+use rayon::prelude::*; // Import Rayon để dùng .par_iter()
+use std::io::Write;
 
 #[derive(Serialize)]
 struct Status {
@@ -28,7 +31,8 @@ async fn main() {
         .layer(cors);
 
     // 3. Khởi chạy Server
-    let addr = SocketAddr::from(([127,0,0,1], 8080));
+    // let addr = SocketAddr::from(([127,0,0,1], 8080));
+    let addr = SocketAddr::from(([0,0,0,0], 8080));
     println!("🚀 Server Rust đã sẵn sàng tại http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -45,41 +49,62 @@ async fn health_check() -> impl IntoResponse {
 
 // Handler: Xử lý ảnh (Tạm thời chỉ phản hồi test)
 async fn process_image(mut multipart: Multipart) -> impl IntoResponse {
-    // "Ảnh của ông đang được gửi tới lò luyện Rust..."
-    let mut file_name = String::new();
-    let mut file_size = 0;
-    let mut processed_bytes = Vec::new();
+    let mut files_data = Vec::new();
 
-    // Duyệt qua các "trường" (fields) trong form data gửi lên
+    // 1. Thu thập tất cả các ảnh gửi lên vào một Vector
     while let Some(field) = multipart.next_field().await.unwrap() {
-        // file_name = field.file_name().unwrap().to_string();
-        // let data = field.bytes().await.unwrap();
-        // file_size = data.len();
-
-        // println!("Nhận được file: {} với dung lượng: {} bytes", file_name, file_size);
-
+        println!(" * 1. name: {:?} - file_name: {:?}", field.name(), field.file_name());
         // Xử lý ảnh
         if field.name().unwrap() == "image" {
+            let name = field.file_name().unwrap_or("image.png").to_string();
             let data = field.bytes().await.unwrap();
 
-            // 1. Load ảnh từ mảng byte trong RAM
-            let img = load_from_memory(&data).expect("Không đọc được định dạng ảnh");
-
-            // 2. Xử lý: Biến thành ảnh trắng đen (Grayscale)
-            // Rust xử lý việc này cực nhanh vì nó tối ưu ở mức CPU
-            let processed_img = img.grayscale();
-
-            // 3. Ghi dữ liệu đã xử lý vào một "buffer" (vùng đệm) trong RAM
-            let mut buffer = Cursor::new(Vec::new());
-            processed_img.write_to(&mut buffer, image::ImageFormat::Png).expect("Lỗi khi ghi ảnh");
-
-            processed_bytes = buffer.into_inner();
+            files_data.push((name, data));
         }
     }
 
-    // format!("Rust đã nhận: {} ({} bytes). Quá nhẹ nhàng!", file_name, file_size)
+    // 2. PHẦN QUAN TRỌNG NHẤT: Xử lý song song bằng Rayon
+    // .into_par_iter() sẽ tự động chia các ảnh cho các nhân CPU khác nhau
+    let processed_results: Vec<(String, Vec<u8>)> = files_data
+        .into_par_iter()
+        .map(|(name, data)| {
+            let img = image::load_from_memory(&data).unwrap();
 
-    // 4. Trả về mảng byte ảnh trực tiếp cho Frontend
-    // Chúng ta thêm Header để trình duyệt hiểu đây là ảnh PNG
-    axum::response::Response::builder().header("Content-Type", "image/png").body(axum::body::Body::from(processed_bytes)).unwrap()
+            let resized = img.resize(300, 300, image::imageops::FilterType::Lanczos3);
+
+            // PHẦN QUAN TRỌNG THỨ HAI: xử lý trực tiếp trên RAM
+            let mut buffer = Cursor::new(Vec::new());
+            resized.write_to(&mut buffer, image::ImageFormat::Png).unwrap();
+            (name, buffer.into_inner())
+        })
+        .collect();
+    println!(" - Processed photos: {}", processed_results.len());
+
+    // 4. Đóng gói ZIP ngay trong RAM
+    let mut zip_buffer = Cursor::new(Vec::new());
+    {
+        let mut zip = zip::ZipWriter::new(&mut zip_buffer);
+        let options = FileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+
+        for (name, bytes) in processed_results {
+            zip.start_file(format!("processed_{}", name), options).unwrap();
+            zip.write_all(&bytes).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    let final_bytes = zip_buffer.into_inner();
+    if final_bytes.is_empty() {
+        return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Buffer rỗng").into_response();
+    }
+
+    // 5. Trả về ZIP
+    axum::response::Response::builder()
+        .header("Content-Type", "application/zip")
+        .header("Content-Disposition", "attachment; filename=\"processed_images.zip\"")
+        .header("Content-Length", final_bytes.len().to_string())
+        .body(axum::body::Body::from(final_bytes))
+        .unwrap()
+        .into_response()
 }

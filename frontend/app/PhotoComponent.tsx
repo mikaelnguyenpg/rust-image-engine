@@ -13,6 +13,7 @@ export default function PhotoComponent() {
   const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(
     null,
   );
+  const [files, setFiles] = useState<FileList | null>(null);
 
   // 1. Kiểm tra kết nối với Rust Backend
   const checkBackend = async () => {
@@ -52,6 +53,36 @@ export default function PhotoComponent() {
       setProcessedImageUrl(url);
     } catch (err) {
       setResult("Lỗi gửi ảnh rồi ông giáo ơi!");
+    }
+  };
+
+  const uploadImages = async () => {
+    if (!files) return;
+
+    const formData = new FormData();
+    Array.from(files).forEach((f) => {
+      formData.append("image", f);
+    });
+
+    try {
+      const res = await fetch("http://localhost:8080/process", {
+        method: "POST",
+        body: formData,
+      });
+
+      const blob = await res.blob();
+      console.log(" * blob: ", blob);
+      const url = window.URL.createObjectURL(blob);
+
+      // Tạo thẻ <a> ẩn để trigger download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "images_from_rust.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      setResult("Lỗi rồi ông giáo ơi!");
     }
   };
 
@@ -99,6 +130,24 @@ export default function PhotoComponent() {
           className="mt-4 w-full py-2 bg-green-600 rounded-lg font-bold"
         >
           Gửi ảnh vào lò luyện Rust
+        </button>
+        {result && (
+          <p className="mt-4 text-center text-yellow-400 font-mono">{result}</p>
+        )}
+      </div>
+
+      <div className="mt-10 p-6 border border-dashed border-slate-600 rounded-lg">
+        <input
+          type="file"
+          multiple
+          onChange={(e) => setFiles(e.target.files)}
+          className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500"
+        />
+        <button
+          onClick={uploadImages}
+          className="mt-4 w-full py-2 bg-green-600 rounded-lg font-bold"
+        >
+          Gửi nhiều ảnh vào lò luyện Rust
         </button>
         {result && (
           <p className="mt-4 text-center text-yellow-400 font-mono">{result}</p>

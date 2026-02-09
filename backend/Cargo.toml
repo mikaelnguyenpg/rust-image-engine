@@ -18,3 +18,9 @@ tower-http = { version = "0.5", features = ["cors"] }
 
 # Chuyển đổi dữ liệu qua lại giữa JSON và Struct
 serde = { version = "1.0", features = ["derive"] }
+
+# Giúp xử lý đồng thời nhiều threads
+rayon = "1.8"
+
+# Giúp nén files
+zip = "0.6"
