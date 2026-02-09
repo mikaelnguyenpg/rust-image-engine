@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
 export default function PhotoComponent() {
   const [status, setStatus] = useState<{
     message: string;
@@ -15,10 +17,14 @@ export default function PhotoComponent() {
   );
   const [files, setFiles] = useState<FileList | null>(null);
 
+  console.log(`*** API_BASE: ${API_BASE}`);
+
   // 1. Kiểm tra kết nối với Rust Backend
   const checkBackend = async () => {
     try {
-      const res = await fetch("http://localhost:8080/health");
+      console.log(`*** I. API: ${API_BASE}/api/health`);
+
+      const res = await fetch(`${API_BASE}/api/health`);
       const data = await res.json();
       setStatus(data);
       console.log(" * I. Data: ", data);
@@ -37,7 +43,9 @@ export default function PhotoComponent() {
 
     console.log(" * II.1. Uploaded photo: ", file);
     try {
-      const res = await fetch("http://localhost:8080/process", {
+      console.log(`*** II. API: ${API_BASE}/api/process`);
+
+      const res = await fetch(`${API_BASE}/api/process`, {
         method: "POST",
         body: formData,
       });
@@ -65,7 +73,9 @@ export default function PhotoComponent() {
     });
 
     try {
-      const res = await fetch("http://localhost:8080/process", {
+      console.log(`*** II. API: ${API_BASE}/api/process`);
+
+      const res = await fetch(`${API_BASE}/api/process`, {
         method: "POST",
         body: formData,
       });

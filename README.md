@@ -45,7 +45,9 @@ Mục tiêu cốt lõi là chứng minh sức mạnh của Rust trong việc tha
 - Docker & Docker Compose
 - Bombardier (để chạy benchmark)
 
-### Triển khai nhanh
+### Triển khai
+
+#### Triển khai xịn(nginx system)
 
 ```bash
 # 1. Clone dự án
@@ -55,7 +57,40 @@ git clone https://github.com/your-username/rust-image-engine.git
 docker-compose up --build -d
 
 # 3. Truy cập giao diện
-# Localhost:80
+# FE: http://localhost
+# BE: http://localhost/api/health
+```
+
+#### Triển khai nhanh(docker-compose system)
+
+```bash
+# 1. Clone dự án
+git clone https://github.com/your-username/rust-image-engine.git
+
+# 2. Khởi động toàn bộ hệ thống (Frontend, 2 Backends)
+docker-compose up --build -d
+
+# 3. Truy cập giao diện
+# FE: http://localhost:3000
+# BE: http://localhost:8080/api/health
+```
+
+#### Triển khai chậm(local system)
+
+```bash
+# 1. Clone dự án
+git clone https://github.com/your-username/rust-image-engine.git
+
+# 2. Khởi động toàn bộ hệ thống (Frontend, 2 Backends)
+# mở 2 terminal:
+# - 1 cái cd vào thư mục backend
+cd backend && cargo run
+# - 1 cái cd vào thư mục frontend
+cd frontend && npm run dev
+
+# 3. Truy cập giao diện
+# FE: http://localhost:3000
+# BE: http://localhost:8080/api/health
 ```
 
 ### Chạy Benchmark so sánh

@@ -1,5 +1,5 @@
 use axum::{
-    Json, Router, extract::Multipart, response::IntoResponse, routing::{get, post}
+    Json, Router, extract::{DefaultBodyLimit, Multipart}, response::IntoResponse, routing::{get, post}
 };
 use rayon::iter::IntoParallelIterator;
 use zip::write::FileOptions;
@@ -25,10 +25,13 @@ async fn main() {
         .allow_methods(Any);
 
     // 2. Định nghĩa các tuyến đường (Routes)
-    let app = Router::new()
+    let api_routes = Router::new()
         .route("/health", get(health_check))
-        .route("/process", post(process_image))
-        .layer(cors);
+        .route("/process", post(process_image));
+    let app = Router::new()
+        .nest("/api", api_routes)
+        .layer(cors)
+        .layer(DefaultBodyLimit::max(5 * 1024 * 1024)); // Limit input size: 50Mb
 
     // 3. Khởi chạy Server
     // let addr = SocketAddr::from(([127,0,0,1], 8080));
