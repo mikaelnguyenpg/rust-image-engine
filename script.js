@@ -15,7 +15,7 @@ export default function () {
     image: http.file(binFile, "test-photo.jpg", "image/jpeg"),
   };
 
-  // 1. CHỌN ĐÍCH ĐẾN (Ông đổi 'rust' thành 'node' khi muốn test phe kia)
+  // 1. NOTE: CHỌN ĐÍCH ĐẾN (Ông đổi 'rust' <----> 'node' khi muốn test phe kia)
   const url = "http://host.docker.internal/api/node/process";
   const res = http.post(url, data);
 
