@@ -120,5 +120,51 @@ docker run --rm --add-host=host.docker.internal:host-gateway -v $(pwd):/home/k6 
 
 ## 📈 6. Kết quả Benchmark (Performance Results)
 
-> "Rust xử lý nhanh hơn Node.js 2.5x trong điều kiện 100 requests đồng thời,
+> "Rust xử lý nhanh hơn Node.js 1.5x trong điều kiện 20 requests đồng thời,
 > mức chiếm dụng RAM thấp hơn 4x."
+
+### 1. Kiến trúc hệ thống
+
+```mermaid
+graph LR
+    A[Client Request] --> B{Nginx Proxy}
+    B -- /api/rust --> C[Rust Engine]
+    B -- /api/node --> D[Node.js Engine]
+
+    subgraph Rust_Process [Parallel Processing]
+    C --> C1[Rayon Thread 1]
+    C --> C2[Rayon Thread 2]
+    C --> C3[Rayon Thread 3]
+    end
+
+    C1 & C2 & C3 --> E[Stream ZIP Result]
+    D --> E
+    E --> A
+```
+
+### 2. Kết quả So găng
+
+| Chỉ số             | Rust (Axum + Rayon) | Node.js (Fastify + Sharp) | Chênh lệch                          |
+| ------------------ | ------------------- | ------------------------- | ----------------------------------- |
+| Total Requests     | 196                 | 131                       | Rust thắng ~50%                     |
+| Throughput (req/s) | 5.90                | 3.84                      | Rust nhanh gấp 1.5 lần              |
+| Avg Duration       | 3.22s               | 4.91s                     | Rust xử lý nhanh hơn 1.7s           |
+| Max Latency        | 5.68s               | 6.19s                     | Rust ổn định hơn                    |
+| Data Sent          | 262 MB              | 175 MB                    | "Rust ""ngốn"" được nhiều việc hơn" |
+
+```plaintext
+Performance Comparison (Throughput - Reqs/sec)
+--------------------------------------------
+Rust:   ███████████████████████████ 5.90 reqs/s
+Node:   ██████████████ 3.84 reqs/s
+--------------------------------------------
+```
+
+![Performance Comparison](<https://quickchart.io/chart?c={type:%27bar%27,data:{labels:[%27Throughput%20(req/s)%27,%27Avg%20Latency%20(s)%27],datasets:[{label:%27Rust%27,data:[5.9,3.22]},{label:%27Node.js%27,data:[3.84,4.91]}]}}>)
+
+### 3. Phân tích thực tế
+
+Dựa vào bảng k6:
+
+- Rust (Champion): Đạt 5.9 req/s, phản hồi trong 3.22s. Ổn định tuyệt đối (100% success).
+- Node.js (Runner-up): Đạt 3.84 req/s, phản hồi chậm hơn (4.91s). Fail 100% khi ảnh nặng >2Mb.

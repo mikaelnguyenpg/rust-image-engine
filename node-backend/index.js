@@ -12,24 +12,41 @@ fastify.register(multipart, {
 
 fastify.post("/api/process", async (req, reply) => {
   const parts = req.files();
-  const processedImages = [];
 
   // 1. Thu thập và xử lý ảnh (Resize)
+  // const processedImages = [];
+  // for await (const part of parts) {
+  //   if (part.fieldname === "image") {
+  //     const buffer = await part.toBuffer();
+  //     const resizedBuffer = await sharp(buffer)
+  //       .resize(300, 300, {
+  //         fit: "cover",
+  //         kernel: "lanczos3",
+  //       })
+  //       .png()
+  //       .toBuffer();
+  //     processedImages.push({ name: part.filename, buffer: resizedBuffer });
+  //   }
+  // }
+
+  const processingPromises = [];
   for await (const part of parts) {
     if (part.fieldname === "image") {
-      const buffer = await part.toBuffer();
-
-      const resizedBuffer = await sharp(buffer)
-        .resize(300, 300, {
-          fit: "cover",
-          kernel: "lanczos3",
-        })
-        .png()
-        .toBuffer();
-
-      processedImages.push({ name: part.filename, buffer: resizedBuffer });
+      const filename = part.filename;
+      const promise = part.toBuffer().then((buffer) =>
+        sharp(buffer)
+          .resize(300, 300, {
+            fit: "cover",
+            kernel: "lanczos3",
+          })
+          .png()
+          .toBuffer()
+          .then((resizedBuffer) => ({ name: filename, buffer: resizedBuffer })),
+      );
+      processingPromises.push(promise);
     }
   }
+  processedImages = await Promise.all(processingPromises);
 
   // 2. Đóng gói ZIP ngay trong RAM
   const archive = archiver("zip", { store: true });

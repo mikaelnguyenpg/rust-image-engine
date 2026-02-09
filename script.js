@@ -16,7 +16,7 @@ export default function () {
   };
 
   // 1. CHỌN ĐÍCH ĐẾN (Ông đổi 'rust' thành 'node' khi muốn test phe kia)
-  const url = "http://host.docker.internal/api/rust/process";
+  const url = "http://host.docker.internal/api/node/process";
   const res = http.post(url, data);
 
   // 2. Kiểm tra xem có đúng là trả về mã 200 (Thành công) không
