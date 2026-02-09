@@ -1,6 +1,8 @@
 services:
   backend:
     build: ./backend
+    deploy: # Chạy 3 instance (container) của Rust cùng lúc
+      replicas: 3
     expose:
       - "8080"
 
