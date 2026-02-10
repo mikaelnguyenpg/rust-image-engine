@@ -1,5 +1,5 @@
 use axum::{
-    Json, Router, extract::{DefaultBodyLimit, Multipart}, response::IntoResponse, routing::{get, post}
+    Json, Router, extract::{DefaultBodyLimit, Multipart}, http::StatusCode, response::IntoResponse, routing::{get, post}
 };
 use rayon::iter::IntoParallelIterator;
 use zip::write::FileOptions;
@@ -68,19 +68,27 @@ async fn process_image(mut multipart: Multipart) -> impl IntoResponse {
 
     // 2. PHẦN QUAN TRỌNG NHẤT: Xử lý song song bằng Rayon
     // .into_par_iter() sẽ tự động chia các ảnh cho các nhân CPU khác nhau
-    let processed_results: Vec<(String, Vec<u8>)> = files_data
+    let results: Result<Vec<(String, Vec<u8>)>, StatusCode> = files_data
         .into_par_iter()
         .map(|(name, data)| {
-            let img = image::load_from_memory(&data).unwrap();
+            let img = image::load_from_memory(&data)
+                .map_err(|_| StatusCode::BAD_REQUEST)?;
 
             let resized = img.resize(300, 300, image::imageops::FilterType::Lanczos3);
 
             // PHẦN QUAN TRỌNG THỨ HAI: xử lý trực tiếp trên RAM
             let mut buffer = Cursor::new(Vec::new());
-            resized.write_to(&mut buffer, image::ImageFormat::Png).unwrap();
-            (name, buffer.into_inner())
+            resized.write_to(&mut buffer, image::ImageFormat::Png)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            Ok((name, buffer.into_inner()))
         })
         .collect();
+    let processed_results = match results {
+        Ok(list) => list,
+        Err(status) => {
+            return (status, "Invalid image format or processing error").into_response()
+        },
+    };
     println!(" - Processed photos: {}", processed_results.len());
 
     // 4. Đóng gói ZIP ngay trong RAM
