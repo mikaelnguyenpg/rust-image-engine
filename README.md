@@ -7,6 +7,9 @@
 ![Docker](https://img.shields.io/badge/infra-Docker-blue?style=for-the-badge&logo=docker)
 ![K6](https://img.shields.io/badge/load-Grafana/K6-blueviolet?style=for-the-badge&logo=k6)
 ![Status](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)
+[![CI Status](https://github.com/mikaelnguyenpg/rust-image-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/mikaelnguyenpg/rust-image-engine/actions)
+[![Rust Report Card](https://rust-reportcard.xuri.me/badge/github/mikaelnguyenpg/rust-image-engine)](https://rust-reportcard.xuri.me/report/github/mikaelnguyenpg/rust-image-engine)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🎯 1. Mục tiêu & Tầm nhìn (Vision)
 
