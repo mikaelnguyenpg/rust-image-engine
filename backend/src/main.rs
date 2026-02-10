@@ -1,9 +1,9 @@
 use axum::{
     Json, Router,
-    body::Body,
+    body::{Body, Bytes},
     extract::{DefaultBodyLimit, Multipart},
     http::StatusCode,
-    response::{Response, IntoResponse},
+    response::{IntoResponse, Response},
     routing::{get, post}
 };
 use rayon::iter::IntoParallelIterator;
@@ -33,7 +33,7 @@ async fn main() {
     // 2. Định nghĩa các tuyến đường (Routes)
     let api_routes = Router::new()
         .route("/health", get(health_check))
-        .route("/process", post(process_image));
+        .route("/process", post(process_images));
     let app = Router::new()
         .nest("/api", api_routes)
         .layer(cors)
@@ -56,56 +56,73 @@ async fn health_check() -> impl IntoResponse {
     })
 }
 
-// Handler: Xử lý ảnh (Tạm thời chỉ phản hồi test)
-async fn process_image(mut multipart: Multipart) -> Response {
-    // 1. Thu thập data (Hạn chế unwrap, dùng while let)
+async fn collect_images(mut multipart: Multipart) -> Result<Vec<(String, Bytes)>, StatusCode> {
     let mut files_data = Vec::new();
+
     while let Ok(Some(field)) = multipart.next_field().await {
         let name = field.file_name().unwrap_or("image.png").to_string();
-        if let Ok(data) = field.bytes().await {
-            files_data.push((name, data));
+
+        match field.bytes().await {
+            Ok(data) => files_data.push((name, data)),
+            Err(_) => return Err(StatusCode::BAD_REQUEST),
         }
     }
 
+    Ok(files_data)
+}
+
+fn resize_images(files_data: Vec<(String, Bytes)>) -> Result<Vec<(String, Vec<u8>)>, StatusCode> {
+    files_data
+        .into_par_iter()
+        .map(|(name, data)| -> Result<(String, Vec<u8>), StatusCode> {
+            let img = image::load_from_memory(&data)
+                .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+            let resized = img.resize(300, 300, image::imageops::FilterType::Lanczos3);
+            let mut buffer = Vec::new();
+            resized.write_to(&mut Cursor::new(&mut buffer), image::ImageFormat::Png)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+            Ok((name, buffer))
+        })
+        .collect()
+}
+
+fn compress_images(list: Vec<(String, Vec<u8>)>) -> Result<Vec<u8>, StatusCode> {
+    let mut zip_buffer: Vec<u8> = Vec::new();
+    {
+        let mut zip = zip::ZipWriter::new(Cursor::new(&mut zip_buffer));
+        let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
+        for (name, bytes) in list {
+            zip.start_file(format!("processed_{}", name), options)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            zip.write_all(&bytes)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        };
+        zip.finish()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+    Ok(zip_buffer)
+}
+
+// Handler: Xử lý ảnh (Tạm thời chỉ phản hồi test)
+async fn process_images(multipart: Multipart) -> Response {
+    // 1. Thu thập data (Hạn chế unwrap, dùng while let)
+    let files_data = match collect_images(multipart).await {
+        Ok(data) => data,
+        Err(status) => return status.into_response(),
+    };
+
     // 2. Đưa việc nặng sang Rayon một cách an toàn
     // spawn_blocking giúp không làm treo các request khác của Axum
-    // let processing_result : Result<Result<Vec<u8>, StatusCode>, task::JoinError> = Ok(Ok(vec![]));
-    let processing_result = task::spawn_blocking(move || {
+    let processing_result = task::spawn_blocking(move || -> Result<Vec<u8>, StatusCode> {
         // Xử lý song song
         // 3.a. Đồng bộ kích thước ảnh
-        let processed: Result<Vec<(String, Vec<u8>)>, StatusCode> = files_data
-            .into_par_iter()
-            .map(|(name, data)| {
-                let img = image::load_from_memory(&data).map_err(|_| StatusCode::BAD_REQUEST)?;
-                let resized = img.resize(300, 300, image::imageops::FilterType::Lanczos3);
-
-                let mut buffer = Vec::new(); // Tờ giấy trắng
-                let mut cursor = Cursor::new(&mut buffer); // Cây bút để vẽ vào tờ giấy
-                resized.write_to(&mut cursor, image::ImageFormat::Png) // Người vẽ bức ảnh vào tờ giấy
-                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-                Ok((name, buffer))
-            })
-            .collect();
-        let list = processed?;
+        let list = resize_images(files_data)?;
 
         // 3.b. Đóng gói ZIP ngay trong thread này
-        let mut zip_buffer: Vec<u8> = Vec::new(); // Cuốn sổ
-        {
-            let cursor = Cursor::new(&mut zip_buffer); // Cây bút
-            let mut zip = zip::ZipWriter::new(cursor); // Người thủ thư
-
-            let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-            for (name, bytes) in list {
-                zip.start_file(format!("processed_{}", name), options) // Người thủ thư ghi từng cái tên vào tờ giấy trong sổ theo format từ options
-                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                zip.write_all(&bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?; // Người thủ thư chép lại bức ảnh vào tờ giấy đó trong sổ
-            }
-            zip.finish().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?; // Người thủ thư đóng sổ và niêm phong. Xong quá trình!
-        }
-
-        Ok::<Vec<u8>, StatusCode>(zip_buffer)
+        compress_images(list)
     }).await;
 
     // 4. Trả về kết quả (Xử lý lỗi JoinError của Tokio)
