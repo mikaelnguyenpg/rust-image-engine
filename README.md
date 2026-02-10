@@ -16,6 +16,14 @@ Mục tiêu cốt lõi là chứng minh sức mạnh của Rust trong việc tha
 - Ý nghĩa: Cung cấp giải pháp xử lý ảnh an toàn về bộ nhớ, tốc độ Native và khả năng mở rộng (Scale) linh hoạt.
 - Định hướng: Phát triển thành một nền tảng Cross-platform (Desktop/Mobile) sử dụng chung một lõi Rust (Shared Core).
 
+### 🌟 Key Features
+
+- **Dual-Engine Processing**: Cho phép so sánh hiệu năng thực tế giữa Rust và Node.js.
+- **High Performance**: Sử dụng Rayon (Rust) để xử lý ảnh song song và Sharp (Node.js) cho tốc độ tối đa.
+- **Extreme Optimization**: Docker images siêu nhẹ (Rust ~33MB Content Size).
+- **Robust Testing**: Bao phủ 100% các case quan trọng (Multiple files, Payload Too Large, Invalid Formats).
+- **Observability**: Dashboard thời gian thực theo dõi CPU/RAM/Throughput.
+
 ## 🏗️ 2. Kiến trúc hệ thống
 
 ```mermaid
@@ -96,10 +104,13 @@ DOCKER_BUILDKIT=1 docker-compose up --build
 
 ### 3. Manual Test
 
-- trên Browser, truy cập `http://localhost/api/health` để check BE API
-- truy cập `http://localhost` để check FE Nextjs
+- BE: trên Browser, truy cập `http://localhost/api/health` để check BE API
+- FE: truy cập `http://localhost` để check FE Nextjs
   - click `Choose files` để chọn nhiều file ảnh
   - click `Gửi nhiều ảnh...` để gửi ảnh lên BE Service. BE sẽ nén từng ảnh và nén tệp ảnh thành 1 file ZIP. Rồi FE Nextjs down file ZIP đó về.
+- Rust API: http://localhost/api/rust/process
+- Node API: http://localhost/api/node/process
+- Grafana Dashboard: http://localhost:3000 (admin/admin)
 
 ### 4. Running Integration Tests
 
@@ -157,4 +168,39 @@ Node:   ██████████████ 3.84 reqs/s
 
 **Scalability**: Kiến trúc sử dụng Nginx làm Reverse Proxy giúp việc mở rộng (Horizontal Scaling) các instance Backend trở nên dễ dàng.
 
-Created with ❤️ by Gemini & [Mikael]
+## 🧬 Others
+
+### 📊 Service Optimization
+
+Đây là kết quả của quá trình tối ưu hóa Multi-stage Build và Standalone Mode:
+
+| Service          | Trước Tối Ưu | Sau Tối Ưu | Content Size | Hiệu quả |
+| ---------------- | ------------ | ---------- | ------------ | -------- |
+| Rust Backend     | 1.51 GB      | 135 MB     | 33.9 MB      | ↓ 91%    |
+| Node.js Backend  | 1.23 GB      | 372 MB     | 89.9 MB      | ↓ 70%    |
+| Next.js Frontend | 1.19 GB      | 389 MB     | 94.0 MB      | ↓ 67%    |
+
+**Insight**: Rust đạt mức tiêu thụ tài nguyên cực thấp và ổn định (O(1) Memory footprint),
+trong khi Node.js có biến động "răng cưa" do cơ chế Garbage Collection.
+
+### 🛡 Quality Assurance
+
+Hệ thống được bảo vệ bởi dàn test tự động tích hợp trong CI/CD:
+
+- **Unit Tests**: Kiểm tra logic xử lý metadata và file validation.
+- **Integration Tests**: Giả lập luồng người dùng thật qua Nginx Gateway.
+  - **test_multiple_files**: Pass ✅
+  - **test_file_too_large** (413): Pass ✅
+  - **test_invalid_file_type** (400): Pass ✅
+
+## 👤 Author
+
+Michael
+
+LinkedIn: linkedin.com/in/...
+
+Portfolio: ....com
+
+---
+
+Created with ❤️ by Gemini & Michael
