@@ -6,17 +6,19 @@ const binFile = open("./test-photo.jpg", "b");
 
 export const options = {
   vus: 20, // Giả lập 20 người dùng cùng lúc (tương đương -c 20 của bombardier)
-  duration: "30s", // Chạy trong 30 giây
+  duration: "60s", // Chạy trong 30 giây
 };
 
 export default function () {
+  const target = __ENV.TARGET || "rust";
+
   // Cấu hình Multipart Form Data
   const data = {
-    image: http.file(binFile, "test-photo.jpg", "image/jpeg"),
+    image: http.file(binFile, "test-photo.1.jpg", "image/jpeg"),
   };
 
   // 1. NOTE: CHỌN ĐÍCH ĐẾN (Ông đổi 'rust' <----> 'node' khi muốn test phe kia)
-  const url = "http://host.docker.internal/api/node/process";
+  const url = `http://host.docker.internal/api/${target}/process`;
   const res = http.post(url, data);
 
   // 2. Kiểm tra xem có đúng là trả về mã 200 (Thành công) không

@@ -128,9 +128,9 @@ docker-compose run --rm tester
 ### 5. Running Load Test (k6)
 
 ```Bash
-# 1. Modify to `/api/rust/process` or `/api/node/process` in script.js
 # 2.(a) Linux, Mac
-docker run --rm --add-host=host.docker.internal:host-gateway -v $(pwd):/home/k6 -i grafana/k6 run /home/k6/script.js
+docker run --rm --add-host=host.docker.internal:host-gateway -v $(pwd):/home/k6 -e TARGET=rust -i grafana/k6 run /home/k6/script.js
+docker run --rm --add-host=host.docker.internal:host-gateway -v $(pwd):/home/k6 -e TARGET=node -i grafana/k6 run /home/k6/script.js
 # 2.(b) Windows
 ```
 
