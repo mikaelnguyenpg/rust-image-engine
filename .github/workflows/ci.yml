@@ -47,7 +47,7 @@ jobs:
       # Chạy bộ test mà ông đã dày công xây dựng
       - name: Run Integration Tests
         run: |
-          docker compose run --rm tester
+          docker compose run --rm --no-recreate tester
 
       # Dọn dẹp sau khi test xong
       - name: Stop Services
