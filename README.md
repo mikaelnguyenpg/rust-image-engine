@@ -66,6 +66,8 @@ Cả hai container được giới hạn tài nguyên tại 0.5 CPU và 256MB RA
 | Benchmark Target | Node.js (Fastify, Sharp, Archiver)      |
 | Infrastructure   | Nginx, Docker, Docker Compose           |
 | Testing          | Pytest(Integration test), k6(Load test) |
+| Observability    | Prometheus, Grafana, cAdvisor           |
+| CI/CD            | GitHub Actions                          |
 
 ## 📂 5. Cấu trúc thư mục (Project Structure)
 
@@ -160,7 +162,18 @@ Node:   ██████████████ 3.84 reqs/s
 
 ![Performance Comparison](<https://quickchart.io/chart?c={type:%27bar%27,data:{labels:[%27Throughput%20(req/s)%27,%27Avg%20Latency%20(s)%27],datasets:[{label:%27Rust%27,data:[5.9,3.22]},{label:%27Node.js%27,data:[3.84,4.91]}]}}>)
 
-## 🧠 Key Learnings
+## 🧠 Critical Decisions
+
+Trong quá trình phát triển, tôi đã đưa ra các quyết định kỹ thuật quan trọng để cân bằng giữa hiệu suất và khả năng bảo trì:
+
+- **Sử dụng cargo-chef cho Rust Docker**: \* _Vấn đề_: Build Rust rất chậm vì phải tải lại hàng trăm crate mỗi lần sửa 1 dòng code.
+  - _Giải pháp_: Tách riêng bước build dependencies sang một layer riêng. Kết quả: Giảm thời gian build CI từ 10-12 phút xuống còn < 2 phút.
+- **Next.js Standalone Output**: \* _Quyết định_: Không copy toàn bộ node_modules vào production image.
+  - _Kết quả_: Giảm dung lượng Frontend Image từ ~1.2GB xuống còn ~380MB, chỉ giữ lại những file cần thiết cho server-side execution.
+- **Nginx làm Buffer & Gateway**: \* _Quyết định_: Đặt Nginx đứng trước để xử lý các vấn đề "vặt" như client_max_body_size và chuẩn hóa API route.
+  - _Lợi ích_: Backend (Rust/Node) có thể tập trung hoàn toàn vào xử lý ảnh mà không cần quan tâm đến các cấu hình hạ tầng phức tạp.
+
+## 📝 Key Learnings
 
 **Memory Management**: Rust không có Garbage Collector giúp tài nguyên RAM luôn ổn định dưới tải cao, trong khi Node.js dễ bị nghẽn (bottleneck) khi GC hoạt động để dọn dẹp các Buffer ảnh lớn.
 
@@ -185,13 +198,17 @@ trong khi Node.js có biến động "răng cưa" do cơ chế Garbage Collectio
 
 ### 🛡 Quality Assurance
 
-Hệ thống được bảo vệ bởi dàn test tự động tích hợp trong CI/CD:
+Hệ thống áp dụng chiến lược **Test-Driven Development (TDD)** với pipeline tự động:
 
-- **Unit Tests**: Kiểm tra logic xử lý metadata và file validation.
-- **Integration Tests**: Giả lập luồng người dùng thật qua Nginx Gateway.
+- **CI/CD Pipeline**: Tự động hóa build-test-lint trên mỗi lượt Pull Request bằng **GitHub Actions**.
+- **Unit Tests**: Rust (Cargo test) & Node.js (Jest/Tap) đảm bảo logic xử lý ảnh và nén ZIP luôn chính xác.
+- **Integration Tests**: Sử dụng **Pytest + Requests** để verify luồng đi của dữ liệu qua Nginx.
+  - **test_load_balancing**: Kiểm tra khả năng điều phối của Gateway. ✅
+  - **test_error_handling**: Đảm bảo mã lỗi chuẩn RESTful (400, 413, 415, 502). ✅
   - **test_multiple_files**: Pass ✅
   - **test_file_too_large** (413): Pass ✅
   - **test_invalid_file_type** (400): Pass ✅
+- **Load Testing**: Sử dụng **k6** giả lập 100+ người dùng đồng thời để tìm ra điểm gãy (Breaking point) của hệ thống.
 
 ## 👤 Author
 

@@ -1,0 +1,55 @@
+name: Image Engine CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Bước này cực quan trọng: Build toàn bộ stack (Nginx, Rust, Node, Tester)
+      - name: Build and Start Services
+        run: |
+          docker compose up -d --build
+
+      # Kiểm tra trạng thái services
+      - name: Check Services Status
+        run: |
+          sleep 10
+          docker compose ps
+          docker compose logs backend
+          docker compose logs node-backend
+
+      # Kiểm tra Kết nối từ Nginx tới Services
+      - name: Test Connectivity from Nginx to Backends
+        run: |
+          docker compose exec -T nginx ping -c 1 backend || echo "Cannot reach rust-backend"
+          docker compose exec -T nginx ping -c 1 node-backend || echo "Cannot reach node-backend"
+
+      # Chờ một chút để các service khởi động hoàn toàn
+      - name: Wait for Services to be Ready
+        run: |
+          echo "Waiting for Nginx gateway..."
+          timeout 60s bash -c 'until curl -s localhost > /dev/null; do sleep 2; done'
+          echo "Waiting for Backends to warm up..."
+          sleep 10
+
+      # Chạy bộ test mà ông đã dày công xây dựng
+      - name: Run Integration Tests
+        run: |
+          docker compose run --rm tester
+
+      # Dọn dẹp sau khi test xong
+      - name: Stop Services
+        run: |
+          docker compose down
