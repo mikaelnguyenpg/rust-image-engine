@@ -24,5 +24,5 @@ export default function () {
     "is status 200": (r) => r.status === 200,
   });
 
-  res.sleep(0.1);
+  sleep(0.1);
 }

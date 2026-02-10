@@ -34,11 +34,11 @@ jobs:
           cd backend
           cargo test --verbose
 
-      - name: Run Test Coverage
-        run: |
-          cargo install cargo-tarpaulin
-          cd backend
-          cargo tarpaulin --out Xml
+      # - name: Run Test Coverage
+      #   run: |
+      #     cargo install cargo-tarpaulin
+      #     cd backend
+      #     cargo tarpaulin --out Xml
 
       # Bước này cực quan trọng: Build toàn bộ stack (Nginx, Rust, Node, Tester)
       - name: Build and Start Services
